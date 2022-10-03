@@ -17,7 +17,7 @@ func (b *Block) GetTarget() []byte {
 
 //将nonce与数据连接起来
 func (b *Block) GetBase4Nonce(nonce int64) []byte {
-	data := bytes.Join([][]byte{utils.ToHexInt(b.Timestamp), b.PreHash, utils.ToHexInt(nonce), b.Target, b.Data}, []byte{})
+	data := bytes.Join([][]byte{utils.ToHexInt(b.Timestamp), b.PreHash, utils.ToHexInt(nonce), b.Target, b.BackTransactionSummary()}, []byte{})
 	return data
 }
 
