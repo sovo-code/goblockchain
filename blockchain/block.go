@@ -3,6 +3,7 @@ package blockchain
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"goblockchain/transaction"
 	"goblockchain/utils"
 	"time"
@@ -47,7 +48,28 @@ func CreateBlock(prehash []byte, txs []*transaction.Transaction) *Block {
 }
 
 //创世区块
-func GenesisBlock() *Block {
-	genesisblock := transaction.BaseTx([]byte("sovo"))
-	return CreateBlock([]byte{}, []*transaction.Transaction{genesisblock})
+func GenesisBlock(address []byte) *Block {
+	tx := transaction.BaseTx(address)
+	genesis := CreateBlock([]byte("sovo"), []*transaction.Transaction{tx})
+	genesis.SetHash()
+	return genesis
+}
+
+// Badger的键值对只支持字节串存储形式
+// 序列化
+func (b *Block) Serialize() []byte {
+	var res bytes.Buffer
+	encoder := gob.NewEncoder(&res)
+	err := encoder.Encode(b)
+	utils.Handle(err)
+	return res.Bytes()
+}
+
+// 反序列化
+func DeSerializeBlock(data []byte) *Block {
+	var block Block
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+	err := decoder.Decode(&block)
+	utils.Handle(err)
+	return &block
 }

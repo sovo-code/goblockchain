@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"os"
 )
 
 //错误处理函数,注意：函数名大写开头才能被导出使用
@@ -22,4 +23,12 @@ func ToHexInt(num int64) []byte {
 		log.Panic(err)
 	}
 	return buff.Bytes()
+}
+
+// 检测文件是否存在
+func FileExits(fileAddr string) bool {
+	if _, err := os.Stat(fileAddr); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
