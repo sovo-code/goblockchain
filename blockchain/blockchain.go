@@ -13,7 +13,7 @@ type BlockChain struct {
 	Blocks []*Block
 }
 
-//区块链根据信息创建区块
+//区块链根据信息创建区块，由于交易创建并没有再矿工里面，所以没有收取手续费
 func (bc *BlockChain) AddBlock(txs []*transaction.Transaction) {
 	newBlock := CreateBlock(bc.Blocks[len(bc.Blocks)-1].Hash, txs)
 	bc.Blocks = append(bc.Blocks, newBlock)
@@ -109,18 +109,19 @@ func (bc *BlockChain) CreateTransaction(from, to []byte, amount int) (*transacti
 		fmt.Println("Not Enough coins!")
 		return &transaction.Transaction{}, false
 	}
+	// 处理可用交易
 	for txid, outidx := range validOutputs {
 		txID, err := hex.DecodeString(txid)
 		utils.Handle(err)
-		input := transaction.TxInput{txID, outidx, from}
+		input := transaction.TxInput{TxID: txID, OutIdx: outidx, FromAddress: from}
 		inputs = append(inputs, input)
 	}
 
-	outputs = append(outputs, transaction.TxOutput{amount, to})
+	outputs = append(outputs, transaction.TxOutput{Value: amount, ToAddress: to})
 	if acc > amount {
-		outputs = append(outputs, transaction.TxOutput{acc - amount, from})
+		outputs = append(outputs, transaction.TxOutput{Value: acc - amount, ToAddress: from})
 	}
-	tx := transaction.Transaction{nil, inputs, outputs}
+	tx := transaction.Transaction{ID: nil, Inputs: inputs, Outputs: outputs}
 	tx.SetID()
 
 	return &tx, true
