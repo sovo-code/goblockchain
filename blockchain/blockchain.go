@@ -25,14 +25,56 @@ type BlockChainIterator struct {
 	DataBase    *badger.DB
 }
 
-func (chain *BlockChain) Iterator() *BlockChainIterator{
+func (chain *BlockChain) Iterator() *BlockChainIterator {
 	iterator := BlockChainIterator{chain.LastHash, chain.DataBase}
 	return &iterator
 }
 
-func (iterator *BlockChainIterator) Next() *Block{
-	var 
+// 返回一个block，并且迭代器指向前一个区块
+func (iterator *BlockChainIterator) Next() *Block {
+	var block *Block
+
+	err := iterator.DataBase.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(iterator.CurrentHash)
+		utils.Handle(err)
+
+		err = item.Value(func(val []byte) error {
+			block = DeSerializeBlock(val)
+			return nil
+		})
+		utils.Handle(err)
+
+		return err
+	})
+	utils.Handle(err)
+
+	iterator.CurrentHash = block.PreHash
+
+	return block
 }
+
+// 创建辅助函数判断迭代器是否终止
+func (chain *BlockChain) BackOgPrevHash() []byte {
+	var ogprevhash []byte
+
+	err := chain.DataBase.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte("ogprevhash"))
+		utils.Handle(err)
+
+		err = item.Value(func(val []byte) error {
+			ogprevhash = val
+
+			return err
+		})
+		utils.Handle(err)
+
+		return err
+	})
+	utils.Handle(err)
+
+	return ogprevhash
+}
+
 // 区块链根据信息创建区块，由于交易创建并没有再矿工里面，所以没有收取手续费
 // 修改函数，将区块加入数据库里面 思路:，lasthash，首先创建区块，获取序列化数据， 获取hash，更新数据库，lasthash,prehash更新
 func (bc *BlockChain) AddBlock(newBlock *Block) {
@@ -57,7 +99,7 @@ func (bc *BlockChain) AddBlock(newBlock *Block) {
 	}
 
 	err = bc.DataBase.Update(func(txn *badger.Txn) error {
-		// 新区快加入区块链
+		// 新区块加入区块链
 		err := txn.Set(newBlock.Hash, newBlock.Serialize())
 		utils.Handle(err)
 		// 更新lashhash
@@ -99,7 +141,7 @@ func InitBlockChain(address []byte) *BlockChain {
 		// lasthash
 		err = txn.Set([]byte("lh"), genesis.Hash)
 		utils.Handle(err)
-		// prehash
+		// prehash == address []byet("sovo")
 		err = txn.Set([]byte("ogprevhash"), genesis.PreHash)
 		utils.Handle(err)
 		lastHash = genesis.Hash
@@ -120,7 +162,7 @@ func ContinueBlockChain() *BlockChain {
 
 	var lastHash []byte
 
-	opts := badger.DefaultOptions(constcoe.BCFile)
+	opts := badger.DefaultOptions(constcoe.BCPath)
 	opts.Logger = nil
 	db, err := badger.Open(opts)
 	utils.Handle(err)
@@ -148,8 +190,12 @@ func ContinueBlockChain() *BlockChain {
 func (bc *BlockChain) FindUnspentTransactions(address []byte) []transaction.Transaction {
 	var unSpentTxs []transaction.Transaction
 	spentTxs := make(map[string][]int) //string类型为key，元素为[]int型
-	for idx := len(bc.Blocks) - 1; idx >= 0; idx-- {
-		block := bc.Blocks[idx]
+
+	iter := bc.Iterator()
+
+all:
+	for {
+		block := iter.Next()
 		for _, tx := range block.Transactions {
 			txID := hex.EncodeToString(tx.ID)
 		IterOutputs:
@@ -173,6 +219,9 @@ func (bc *BlockChain) FindUnspentTransactions(address []byte) []transaction.Tran
 					}
 				}
 			}
+		}
+		if bytes.Equal(block.PreHash, bc.BackOgPrevHash()) {
+			break all
 		}
 	}
 	return unSpentTxs
@@ -244,9 +293,4 @@ func (bc *BlockChain) CreateTransaction(from, to []byte, amount int) (*transacti
 	tx.SetID()
 
 	return &tx, true
-}
-
-// blockchain.go
-func (bc *BlockChain) Mine(txs []*transaction.Transaction) {
-	bc.AddBlock(txs)
 }
