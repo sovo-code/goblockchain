@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-//错误处理函数,注意：函数名大写开头才能被导出使用
+// 错误处理函数,注意：函数名大写开头才能被导出使用
 func Handle(err error) {
 	if err != nil {
 		log.Panic(err)
