@@ -2,9 +2,14 @@ package utils
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"goblockchain/constcoe"
 	"log"
 	"os"
+
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/ripemd160"
 )
 
 // 错误处理函数,注意：函数名大写开头才能被导出使用
@@ -32,3 +37,53 @@ func FileExits(fileAddr string) bool {
 	}
 	return true
 }
+
+// 构造公钥hash和钱包地址的函数
+// 将公钥转化为公钥hash
+func PublicKeyHash(publicKey []byte) []byte {
+	hashPublicKey := sha256.Sum256(publicKey)
+
+	hasher := ripemd160.New()
+	_, err := hasher.Write(hashPublicKey[:])
+	Handle(err)
+	publicRipeMd := hasher.Sum(nil)
+
+	return publicRipeMd
+}
+
+// 检查位生成函数
+func CheckSum(ripeMdHash []byte) []byte {
+	// 取公钥hash两次sha256前constcoe.CheckLength位数据作为检查位
+	firstHash := sha256.Sum256(ripeMdHash)
+	secondHash := sha256.Sum256(firstHash[:])
+
+	return secondHash[:constcoe.ChecksumLength]
+}
+
+// base256转base58及其反函数
+func Base58Encode(input []byte) []byte {
+	encode := base58.Encode(input)
+	return []byte(encode)
+}
+
+func Base58Decode(input []byte) []byte {
+	decode, err := base58.Decode(string(input[:]))
+	Handle(err)
+	return decode
+}
+
+// 公钥hash生成钱包地址
+func PubHash2Address(pubKeyHash []byte) []byte {
+	networkVersionedHash := append([]byte{constcoe.NetWorkVersion}, pubKeyHash...)
+	checkSum := CheckSum(networkVersionedHash)
+	finalHash := append(networkVersionedHash, checkSum...)
+	address := Base58Encode(finalHash)
+	return address
+}
+
+func Address2PubHash(address []byte) []byte {
+	pubKeyHash := Base58Decode(address)
+	pubKeyHash = pubKeyHash[1 : len(pubKeyHash)-constcoe.ChecksumLength]
+	return pubKeyHash
+}
+

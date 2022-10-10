@@ -1,6 +1,6 @@
 module goblockchain
 
-go 1.19
+go 1.18
 
 require github.com/dgraph-io/badger v1.6.2
 
