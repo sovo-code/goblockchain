@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"goblockchain/constcoe"
@@ -155,7 +156,7 @@ func InitBlockChain(address []byte) *BlockChain {
 // 从数据库加载区块链
 func ContinueBlockChain() *BlockChain {
 	// 检查数据库是否存在
-	if utils.FileExits(constcoe.BCFile) == false {
+	if !utils.FileExits(constcoe.BCFile) {
 		fmt.Println("No blockchain was found, please create one first!")
 		runtime.Goexit()
 	}
@@ -207,13 +208,13 @@ all:
 						}
 					}
 				}
-				if reflect.DeepEqual(out.ToAddress, address) {
+				if reflect.DeepEqual(out.HashPubKey, address) {
 					unSpentTxs = append(unSpentTxs, *tx)
 				}
 			}
 			if !tx.IsBase() {
 				for _, in := range tx.Inputs {
-					if reflect.DeepEqual(in.FromAddress, address) {
+					if reflect.DeepEqual(in.PubKey, address) {
 						inTxID := hex.EncodeToString(in.TxID)
 						spentTxs[inTxID] = append(spentTxs[inTxID], in.OutIdx)
 					}
@@ -237,7 +238,7 @@ Work:
 	for _, tx := range unspentTxs {
 		txID := hex.EncodeToString(tx.ID)
 		for outIdx, out := range tx.Outputs {
-			if reflect.DeepEqual(out.ToAddress, address) {
+			if reflect.DeepEqual(out.HashPubKey, address) {
 				accumulated += out.Value
 				unspentOuts[txID] = outIdx
 				continue Work
@@ -268,11 +269,11 @@ Work:
 }
 
 // 创建交易
-func (bc *BlockChain) CreateTransaction(from, to []byte, amount int) (*transaction.Transaction, bool) {
+func (bc *BlockChain) CreateTransaction(from_PubKey, to_HashPubKey []byte, amount int, privkey ecdsa.PrivateKey) (*transaction.Transaction, bool) {
 	var inputs []transaction.TxInput
 	var outputs []transaction.TxOutput
 
-	acc, validOutputs := bc.FindSpendableOutputs(from, amount)
+	acc, validOutputs := bc.FindSpendableOutputs(from_PubKey, amount)
 	if acc < amount {
 		fmt.Println("Not Enough coins!")
 		return &transaction.Transaction{}, false
@@ -281,16 +282,17 @@ func (bc *BlockChain) CreateTransaction(from, to []byte, amount int) (*transacti
 	for txid, outidx := range validOutputs {
 		txID, err := hex.DecodeString(txid)
 		utils.Handle(err)
-		input := transaction.TxInput{TxID: txID, OutIdx: outidx, FromAddress: from}
+		input := transaction.TxInput{TxID: txID, OutIdx: outidx, PubKey: from_PubKey, Sig: nil}
 		inputs = append(inputs, input)
 	}
 
-	outputs = append(outputs, transaction.TxOutput{Value: amount, ToAddress: to})
+	outputs = append(outputs, transaction.TxOutput{Value: amount, HashPubKey: to_HashPubKey})
 	if acc > amount {
-		outputs = append(outputs, transaction.TxOutput{Value: acc - amount, ToAddress: from})
+		outputs = append(outputs, transaction.TxOutput{Value: acc - amount, HashPubKey: to_HashPubKey})
 	}
 	tx := transaction.Transaction{ID: nil, Inputs: inputs, Outputs: outputs}
 	tx.SetID()
 
+	tx.Sign(privkey)
 	return &tx, true
 }

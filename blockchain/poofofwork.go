@@ -15,13 +15,13 @@ func (b *Block) GetTarget() []byte {
 	return target.Bytes()
 }
 
-//将nonce与数据连接起来
+// 将nonce与数据连接起来
 func (b *Block) GetBase4Nonce(nonce int64) []byte {
 	data := bytes.Join([][]byte{utils.ToHexInt(b.Timestamp), b.PreHash, utils.ToHexInt(nonce), b.Target, b.BackTransactionSummary()}, []byte{})
 	return data
 }
 
-//寻找nonce
+// 寻找nonce
 func (b *Block) FindNonce() int64 {
 	var intHash big.Int
 	var intTraget big.Int
@@ -43,7 +43,7 @@ func (b *Block) FindNonce() int64 {
 	return nonce
 }
 
-//验证正确性
+// 验证正确性
 func (b *Block) ValidataPow() bool {
 	var intHash big.Int
 	var intTraget big.Int

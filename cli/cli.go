@@ -72,7 +72,7 @@ func (cli *CommandLine) walletUpdate() {
 // walletslist
 func (cli *CommandLine) walletsList() {
 	refList := wallet.LoadRefList()
-	for address, _ := range *refList {
+	for address := range *refList {
 		wlt := wallet.LoadWallet(address)
 		fmt.Println("------------------------------------------------------------------------------------------------------------------------------------------------------")
 		fmt.Printf("Wallet address:%s\n", address)
@@ -152,7 +152,8 @@ func (cli *CommandLine) send(from, to string, amount int) {
 	chain := blockchain.ContinueBlockChain()
 	defer chain.DataBase.Close()
 
-	tx, ok := chain.CreateTransaction([]byte(from), []byte(to), amount)
+	fromWallet := wallet.LoadWallet(from)
+	tx, ok := chain.CreateTransaction(fromWallet.PublicKey, utils.Address2PubHash([]byte(to)), amount, fromWallet.Privtekey)
 	if !ok {
 		fmt.Println("Failed creating transaction")
 		return
