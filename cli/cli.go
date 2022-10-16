@@ -95,7 +95,7 @@ func (cli *CommandLine) sendRefName(fromRefname, toRefname string, amount int) {
 
 // createblockchain
 func (cli *CommandLine) createBlockChain(address string) {
-	newChain := blockchain.InitBlockChain([]byte(address))
+	newChain := blockchain.InitBlockChain(utils.Address2PubHash([]byte(address)))
 	defer newChain.DataBase.Close()
 	fmt.Println("Finished creating a blockchain, and the owner is: ", address)
 }
@@ -113,7 +113,8 @@ func (cli *CommandLine) balance(address string) {
 	chain := blockchain.ContinueBlockChain()
 	defer chain.DataBase.Close()
 	// 这里使用了go语言的defer关键字，其后的代码将会在函数运行结束前最后执行，也就是我们最后将关闭数据库。
-	balance, _ := chain.FindUTXOs([]byte(address))
+	wlt := wallet.LoadWallet(address)
+	balance, _ := chain.FindUTXOs(wlt.PublicKey)
 	fmt.Printf("Address:%s, Blance:%d \n", address, balance)
 }
 

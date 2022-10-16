@@ -208,7 +208,7 @@ all:
 						}
 					}
 				}
-				if reflect.DeepEqual(out.HashPubKey, address) {
+				if reflect.DeepEqual(out.HashPubKey, utils.PublicKeyHash(address)) {
 					unSpentTxs = append(unSpentTxs, *tx)
 				}
 			}
@@ -238,7 +238,7 @@ Work:
 	for _, tx := range unspentTxs {
 		txID := hex.EncodeToString(tx.ID)
 		for outIdx, out := range tx.Outputs {
-			if reflect.DeepEqual(out.HashPubKey, address) {
+			if reflect.DeepEqual(out.HashPubKey, utils.PublicKeyHash(address)) {
 				accumulated += out.Value
 				unspentOuts[txID] = outIdx
 				continue Work
@@ -257,12 +257,14 @@ Work:
 	for _, tx := range unspentTxs {
 		txID := hex.EncodeToString(tx.ID)
 		for outIdx, out := range tx.Outputs {
-			accumulated += out.Value
-			unspentOuts[txID] = outIdx
-			if accumulated >= amount {
-				break Work
+			if reflect.DeepEqual(out.HashPubKey, utils.PublicKeyHash(address)) && accumulated < amount {
+				accumulated += out.Value
+				unspentOuts[txID] = outIdx
+				if accumulated >= amount {
+					break Work
+				}
+				continue Work
 			}
-			continue Work
 		}
 	}
 	return accumulated, unspentOuts
@@ -288,7 +290,7 @@ func (bc *BlockChain) CreateTransaction(from_PubKey, to_HashPubKey []byte, amoun
 
 	outputs = append(outputs, transaction.TxOutput{Value: amount, HashPubKey: to_HashPubKey})
 	if acc > amount {
-		outputs = append(outputs, transaction.TxOutput{Value: acc - amount, HashPubKey: to_HashPubKey})
+		outputs = append(outputs, transaction.TxOutput{Value: acc - amount, HashPubKey: utils.PublicKeyHash(from_PubKey)})
 	}
 	tx := transaction.Transaction{ID: nil, Inputs: inputs, Outputs: outputs}
 	tx.SetID()
